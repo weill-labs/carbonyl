@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 
-export CARBONYL_ROOT=$(cd $(dirname -- "$0") && dirname -- "$(pwd)")
+script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
+export CARBONYL_ROOT="$(cd -- "$script_dir/.." && pwd -P)"
 export INSTALL_DEPOT_TOOLS="true"
 
 cd "$CARBONYL_ROOT"
