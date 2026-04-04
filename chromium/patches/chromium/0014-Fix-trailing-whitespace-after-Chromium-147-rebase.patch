@@ -1,0 +1,22 @@
+From cba1d13cef294ae9100dea92326e3c61716a69e3 Mon Sep 17 00:00:00 2001
+From: Charles Weill <c@weill.io>
+Date: Sat, 4 Apr 2026 03:54:08 -0400
+Subject: [PATCH 14/17] Fix trailing whitespace after Chromium 147 rebase
+
+---
+ cc/trees/layer_tree_host.cc | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/cc/trees/layer_tree_host.cc b/cc/trees/layer_tree_host.cc
+index 093c16161732c..9bdc7c3aeac63 100644
+--- a/cc/trees/layer_tree_host.cc
++++ b/cc/trees/layer_tree_host.cc
+@@ -502,7 +502,7 @@ bool LayerTreeHost::MainFrameUpdatesAreDeferred() const {
+ bool LayerTreeHost::IsUsingLayerLists() const {
+   return settings_.use_layer_lists;
+ }
+- 
++
+ void LayerTreeHost::StartTerminalRender() {
+   DCHECK(IsMainThread());
+ 
