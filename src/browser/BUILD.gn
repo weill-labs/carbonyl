@@ -35,6 +35,13 @@ component("viz") {
   ]
 }
 
+group("carbonyl") {
+  public_deps = [
+    ":bridge",
+    ":renderer",
+  ]
+}
+
 config("lib") {
   target = ""
 
@@ -69,6 +76,6 @@ component("renderer") {
     ":mojom",
     ":bridge",
     "//base",
-    "//skia"
+    "//skia",
   ]
 }

@@ -1,31 +1,32 @@
-From 7b1f72900f704ffecc48c66da7ccd6de205b88f7 Mon Sep 17 00:00:00 2001
+From 1107a8bfd6f9d25d7f21c4d0339f92ba99273b32 Mon Sep 17 00:00:00 2001
 From: Fathy Boundjadj <hey@fathy.fr>
 Date: Thu, 9 Feb 2023 03:32:14 +0100
-Subject: [PATCH 08/14] Fix text layout
+Subject: [PATCH 08/17] Fix text layout
 
 ---
- .../core/css/resolver/style_resolver.cc         | 17 ++++++++++++++++-
- 1 file changed, 16 insertions(+), 1 deletion(-)
+ .../core/css/resolver/style_resolver.cc        | 18 +++++++++++++++++-
+ 1 file changed, 17 insertions(+), 1 deletion(-)
 
 diff --git a/third_party/blink/renderer/core/css/resolver/style_resolver.cc b/third_party/blink/renderer/core/css/resolver/style_resolver.cc
-index 6207b72d17cb9..79cb8c85b697f 100644
+index 996c856818701..519ce5bbf3322 100644
 --- a/third_party/blink/renderer/core/css/resolver/style_resolver.cc
 +++ b/third_party/blink/renderer/core/css/resolver/style_resolver.cc
-@@ -281,7 +281,9 @@ String ComputeBaseComputedStyleDiff(const ComputedStyle* base_computed_style,
+@@ -375,7 +375,9 @@ String ComputeBaseComputedStyleDiff(const ComputedStyle* base_computed_style,
      return g_null_atom;
    }
  
--  return String("Field diff: ") + builder.ReleaseString();
+-  return StrCat({"Field diff: ", builder.ReleaseString()});
 +  // TODO(fathy): Carbonyl should properly set the computed style
 +  // return String("Field diff: ") + builder.ReleaseString();
 +  return g_null_atom;
  }
  #endif  // DCHECK_IS_ON()
  
-@@ -1039,6 +1041,19 @@ scoped_refptr<ComputedStyle> StyleResolver::ResolveStyle(
-     UseCounter::Count(GetDocument(), WebFeature::kHasGlyphRelativeUnits);
+@@ -1491,6 +1493,20 @@ const ComputedStyle* StyleResolver::ResolveStyle(
+     }
    }
  
++  // Carbonyl normalizes text metrics for terminal rendering.
 +  auto font = state.StyleBuilder().GetFontDescription();
 +  FontFamily family;
 +

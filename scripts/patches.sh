@@ -1,14 +1,54 @@
 #!/usr/bin/env bash
 
-export CARBONYL_ROOT=$(cd $(dirname -- "$0") && dirname -- "$(pwd)")
+script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
+export CARBONYL_ROOT="$(cd -- "$script_dir/.." && pwd -P)"
 
 source "$CARBONYL_ROOT/scripts/env.sh"
 
 cd "$CHROMIUM_SRC"
 
-chromium_upstream="92da8189788b1b373cbd3348f73d695dfdc521b6"
-skia_upstream="486deb23bc2a4d3d09c66fef52c2ad64d8b4f761"
-webrtc_upstream="727080cbacd58a2f303ed8a03f0264fe1493e47a"
+chromium_upstream="5a40bc538bcbf1b9f4010f026d38a8afa2821905"
+skia_upstream="abbe599fb3c0ef2fa82bfadbb0ddcd321f22faf0"
+webrtc_upstream="9179833d210d105aede5d4ec516734a6bd1ef2e8"
+
+apply_patch_series() {
+    local repo_root="$1"
+    local upstream="$2"
+    local patch_dir="$3"
+    local label="$4"
+    local -a patches=()
+
+    if [[ -d "$patch_dir" ]]; then
+        shopt -s nullglob
+        patches=("$patch_dir"/*.patch)
+        shopt -u nullglob
+    fi
+
+    if [[ "${#patches[@]}" -eq 0 ]]; then
+        echo "No $label patches to apply"
+        return
+    fi
+
+    git -C "$repo_root" checkout "$upstream"
+    git -C "$repo_root" am -3 --committer-date-is-author-date "${patches[@]}"
+    "$CARBONYL_ROOT/scripts/restore-mtime.sh" "$upstream"
+}
+
+save_patch_series() {
+    local repo_root="$1"
+    local upstream="$2"
+    local patch_dir="$3"
+    local label="$4"
+
+    rm -rf "$patch_dir"
+
+    if [[ -z "$(git -C "$repo_root" rev-list --max-count=1 "$upstream..HEAD")" ]]; then
+        echo "No $label patches to save"
+        return
+    fi
+
+    git -C "$repo_root" format-patch --no-signature --output-directory "$patch_dir" "$upstream"
+}
 
 if [[ "$1" == "apply" ]]; then
     echo "Stashing Chromium changes.."
@@ -16,9 +56,7 @@ if [[ "$1" == "apply" ]]; then
     git stash
 
     echo "Applying Chromium patches.."
-    git checkout "$chromium_upstream"
-    git am --committer-date-is-author-date "$CARBONYL_ROOT/chromium/patches/chromium"/*
-    "$CARBONYL_ROOT/scripts/restore-mtime.sh" "$chromium_upstream"
+    apply_patch_series "$CHROMIUM_SRC" "$chromium_upstream" "$CARBONYL_ROOT/chromium/patches/chromium" "Chromium"
 
     echo "Stashing Skia changes.."
     cd "$CHROMIUM_SRC/third_party/skia"
@@ -26,9 +64,7 @@ if [[ "$1" == "apply" ]]; then
     git stash
 
     echo "Applying Skia patches.."
-    git checkout "$skia_upstream"
-    git am --committer-date-is-author-date "$CARBONYL_ROOT/chromium/patches/skia"/*
-    "$CARBONYL_ROOT/scripts/restore-mtime.sh" "$skia_upstream"
+    apply_patch_series "$CHROMIUM_SRC/third_party/skia" "$skia_upstream" "$CARBONYL_ROOT/chromium/patches/skia" "Skia"
 
     echo "Stashing WebRTC changes.."
     cd "$CHROMIUM_SRC/third_party/webrtc"
@@ -36,9 +72,7 @@ if [[ "$1" == "apply" ]]; then
     git stash
 
     echo "Applying WebRTC patches.."
-    git checkout "$webrtc_upstream"
-    git am --committer-date-is-author-date "$CARBONYL_ROOT/chromium/patches/webrtc"/*
-    "$CARBONYL_ROOT/scripts/restore-mtime.sh" "$webrtc_upstream"
+    apply_patch_series "$CHROMIUM_SRC/third_party/webrtc" "$webrtc_upstream" "$CARBONYL_ROOT/chromium/patches/webrtc" "WebRTC"
 
     echo "Patches successfully applied"
 elif [[ "$1" == "save" ]]; then
@@ -47,18 +81,13 @@ elif [[ "$1" == "save" ]]; then
     fi
 
     echo "Updating Chromium patches.."
-    rm -rf "$CARBONYL_ROOT/chromium/patches/chromium"
-    git format-patch --no-signature --output-directory "$CARBONYL_ROOT/chromium/patches/chromium" "$chromium_upstream"
+    save_patch_series "$CHROMIUM_SRC" "$chromium_upstream" "$CARBONYL_ROOT/chromium/patches/chromium" "Chromium"
 
     echo "Updating Skia patches.."
-    cd "$CHROMIUM_SRC/third_party/skia"
-    rm -rf "$CARBONYL_ROOT/chromium/patches/skia"
-    git format-patch --no-signature --output-directory "$CARBONYL_ROOT/chromium/patches/skia" "$skia_upstream"
+    save_patch_series "$CHROMIUM_SRC/third_party/skia" "$skia_upstream" "$CARBONYL_ROOT/chromium/patches/skia" "Skia"
 
     echo "Updating WebRTC patches.."
-    cd "$CHROMIUM_SRC/third_party/webrtc"
-    rm -rf "$CARBONYL_ROOT/chromium/patches/webrtc"
-    git format-patch --no-signature --output-directory "$CARBONYL_ROOT/chromium/patches/webrtc" "$webrtc_upstream"
+    save_patch_series "$CHROMIUM_SRC/third_party/webrtc" "$webrtc_upstream" "$CARBONYL_ROOT/chromium/patches/webrtc" "WebRTC"
 
     echo "Patches successfully updated"
 else

@@ -1,18 +1,25 @@
 #!/usr/bin/env bash
 
-export CARBONYL_ROOT=$(cd $(dirname -- "$0") && dirname -- "$(pwd)")
+set -eo pipefail
+
+script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
+export CARBONYL_ROOT="$(cd -- "$script_dir/.." && pwd -P)"
 export INSTALL_DEPOT_TOOLS="true"
 
 cd "$CARBONYL_ROOT"
 source scripts/env.sh
 
 target="$1"
-cpu="$2"
-
 if [ ! -z "$target" ]; then
     shift
+else
+    echo "Usage: ./scripts/build.sh <target> [cpu] [ninja-args...]"
+    exit 1
 fi
-if [ ! -z "$cpu" ]; then
+
+cpu=""
+if [ $# -gt 0 ] && [[ "$1" != -* ]]; then
+    cpu="$1"
     shift
 fi
 
@@ -35,6 +42,12 @@ else
     cp "build/$triple/release/libcarbonyl.so" "$CHROMIUM_SRC/out/$target"
 fi
 
-cd "$CHROMIUM_SRC/out/$target"
+cd "$CHROMIUM_SRC"
 
-ninja headless:headless_shell "$@"
+if [ -x "$CHROMIUM_SRC/third_party/ninja/ninja" ]; then
+    ninja_bin="$CHROMIUM_SRC/third_party/ninja/ninja"
+else
+    ninja_bin="ninja"
+fi
+
+"$ninja_bin" -C "out/$target" headless:headless_shell "$@"

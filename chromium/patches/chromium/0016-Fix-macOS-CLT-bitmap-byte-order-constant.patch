@@ -1,0 +1,22 @@
+From 4febc522182c3a59d73541b52782b62ad8fa512a Mon Sep 17 00:00:00 2001
+From: Charles Weill <c@weill.io>
+Date: Sat, 4 Apr 2026 14:07:35 -0400
+Subject: [PATCH 16/17] Fix macOS CLT bitmap byte order constant
+
+---
+ skia/ext/skia_utils_mac.mm | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/skia/ext/skia_utils_mac.mm b/skia/ext/skia_utils_mac.mm
+index 07e7f51fc7429..e621aa100053a 100644
+--- a/skia/ext/skia_utils_mac.mm
++++ b/skia/ext/skia_utils_mac.mm
+@@ -81,7 +81,7 @@ SkBitmap NSImageOrNSImageRepToSkBitmap(NSImage* image,
+   base::apple::ScopedCFTypeRef<CGContextRef> context(CGBitmapContextCreate(
+       data, size.width, size.height, 8, size.width * 4, cg_color_space.get(),
+       static_cast<CGBitmapInfo>(kCGImageAlphaPremultipliedFirst) |
+-          kCGImageByteOrder32Host));
++          kCGBitmapByteOrder32Host));
+ #else
+ #error We require that Skia's and CoreGraphics's recommended \
+        image memory layout match.
