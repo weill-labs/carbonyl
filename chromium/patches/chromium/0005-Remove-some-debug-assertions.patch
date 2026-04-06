@@ -43,10 +43,20 @@ index afb10fe2da6a7..0d4365488bdd5 100644
  #endif
  
 diff --git a/third_party/blink/renderer/platform/graphics/compositing/paint_artifact_compositor.cc b/third_party/blink/renderer/platform/graphics/compositing/paint_artifact_compositor.cc
-index c066b46007c91..485d344066cc7 100644
+index c066b46007c91..b4f36f9a74b91 100644
 --- a/third_party/blink/renderer/platform/graphics/compositing/paint_artifact_compositor.cc
 +++ b/third_party/blink/renderer/platform/graphics/compositing/paint_artifact_compositor.cc
-@@ -452,7 +452,6 @@ bool NeedsFullUpdateAfterPaintingChunk(
+@@ -393,8 +393,9 @@ cc::Layer* ForeignLayer(const PaintChunk& chunk,
+   auto* foreign_layer = DynamicTo<ForeignLayerDisplayItem>(first_display_item);
+   return foreign_layer ? foreign_layer->GetLayer() : nullptr;
+ }
+ 
+-void DumpWithDifferingPaintPropertiesIncluded(const PaintChunk& previous,
+-                                              const PaintChunk& repainted) {
++[[maybe_unused]] void DumpWithDifferingPaintPropertiesIncluded(
++    const PaintChunk& previous,
++    const PaintChunk& repainted) {
+@@ -452,7 +453,6 @@ bool NeedsFullUpdateAfterPaintingChunk(
      // properties are changed, which would indicate a missing call to
      // SetNeedsUpdate.
      if (previous.properties != repainted.properties) {
@@ -54,7 +64,7 @@ index c066b46007c91..485d344066cc7 100644
        return true;
      }
  
-@@ -521,7 +520,6 @@ bool NeedsFullUpdateAfterPaintingChunk(
+@@ -521,7 +521,6 @@ bool NeedsFullUpdateAfterPaintingChunk(
    // properties are changed, which would indicate a missing call to
    // SetNeedsUpdate.
    if (previous.properties != repainted.properties) {

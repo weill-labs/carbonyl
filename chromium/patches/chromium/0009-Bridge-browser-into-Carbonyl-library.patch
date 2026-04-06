@@ -725,6 +725,7 @@ index 62e7eea29cfdd..aed35c0c5c38a 100644
   public:
    HeadlessWebContentsImpl(const HeadlessWebContentsImpl&) = delete;
    HeadlessWebContentsImpl& operator=(const HeadlessWebContentsImpl&) = delete;
++  using content::WebContentsObserver::OnVisibilityChanged;
 @@ -55,6 +58,9 @@ class HEADLESS_EXPORT HeadlessWebContentsImpl : public HeadlessWebContents,
        HeadlessWebContentsImpl* parent,
        std::unique_ptr<content::WebContents> child_contents);

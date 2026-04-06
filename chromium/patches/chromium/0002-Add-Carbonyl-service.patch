@@ -91,24 +91,17 @@ diff --git a/content/browser/browser_interface_binders.cc b/content/browser/brow
 index f5f7a55ddaabf..c6aa63b4c78cb 100644
 --- a/content/browser/browser_interface_binders.cc
 +++ b/content/browser/browser_interface_binders.cc
-@@ -943,6 +943,21 @@ void PopulateBinderMapWithContext(
+@@ -943,6 +943,13 @@ void PopulateBinderMapWithContext(
        &BindRenderFrameHostImpl<
            &RenderFrameHostImpl::CreateWebTransportConnector>);
  
 +  map->Add<blink::mojom::Authenticator>(
-+      base::BindRepeating(&RenderFrameHostImpl::GetWebAuthenticationService,
-+                          base::Unretained(host)));
-+
-+  map->Add<blink::test::mojom::VirtualAuthenticatorManager>(
-+      base::BindRepeating(&RenderFrameHostImpl::GetVirtualAuthenticatorManager,
-+                          base::Unretained(host)));
++      &BindRenderFrameHostImpl<
++          &RenderFrameHostImpl::GetWebAuthenticationService>);
 +
 +  map->Add<carbonyl::mojom::CarbonylRenderService>(
-+      base::BindRepeating(&RenderFrameHostImpl::GetCarbonylRenderService,
-+                          base::Unretained(host)));
-+
-+  map->Add<device::mojom::DevicePostureProvider>(
-+      base::BindRepeating(&BindDevicePostureProvider));
++      &BindRenderFrameHostImpl<
++          &RenderFrameHostImpl::GetCarbonylRenderService>);
 +
    // BrowserMainLoop::GetInstance() may be null on unit tests.
    if (BrowserMainLoop::GetInstance()) {
@@ -180,35 +173,21 @@ index 6ee766c522028..1a3748698443e 100644
 +// Carbonyl
 +#include <stdlib.h>
 +#include <iostream>
++#include "base/base64.h"
 +#include "cc/paint/paint_recorder.h"
 +#include "cc/paint/skia_paint_canvas.h"
 +#include "cc/raster/playback_image_provider.h"
 +#include "cc/tiles/software_image_decode_cache.h"
 +#include "cc/trees/layer_tree_host.h"
 +#include "cc/trees/render_frame_metadata_observer.h"
-+#include "components/paint_preview/common/paint_preview_tracker.h"
-+#include "third_party/blink/renderer/core/exported/web_view_impl.h"
-+#include "third_party/blink/renderer/core/dom/frame_request_callback_collection.h"
-+#include "third_party/blink/renderer/core/frame/local_frame_view.h"
-+#include "third_party/blink/renderer/core/frame/web_local_frame_impl.h"
-+#include "third_party/blink/renderer/core/paint/paint_flags.h"
-+#include "third_party/blink/renderer/core/layout/layout_view.h"
-+#include "third_party/blink/renderer/platform/graphics/paint/cull_rect.h"
-+#include "third_party/blink/renderer/platform/graphics/paint/paint_record_builder.h"
-+#include "third_party/skia/include/core/SkEncodedImageFormat.h"
 +#include "third_party/skia/include/core/SkMesh.h"
-+#include "third_party/skia/include/core/SkStream.h"
 +#include "third_party/skia/include/core/SkSurface.h"
 +#include "third_party/skia/include/core/SkVertices.h"
-+#include "third_party/skia/include/docs/SkPDFDocument.h"
-+#include "third_party/skia/include/svg/SkSVGCanvas.h"
-+#include "third_party/skia/include/svg/SkSVGCanvas.h"
-+#include "third_party/skia/include/utils/SkBase64.h"
++#include "third_party/skia/include/private/base/SkTemplates.h"
 +#include "third_party/skia/src/text/GlyphRun.h"
 +#include "third_party/skia/src/core/SkClipStackDevice.h"
 +#include "third_party/skia/src/core/SkDevice.h"
 +#include "third_party/skia/src/core/SkFontPriv.h"
-+#include "third_party/skia/src/utils/SkUTF.h"
 +
  using base::Time;
  using blink::ContextMenuData;
@@ -257,11 +236,14 @@ index 6ee766c522028..1a3748698443e 100644
 +  }
 +
 +protected:
-+  SkBaseDevice* onCreateDevice(const CreateInfo& info, const SkPaint*) override {
-+    return new TextCaptureDevice(info.fInfo, SkSurfaceProps(0, info.fPixelGeometry));
++  sk_sp<SkDevice> createDevice(const CreateInfo& info, const SkPaint*) override {
++    return sk_sp<SkDevice>(
++        new TextCaptureDevice(info.fInfo, SkSurfaceProps(0, info.fPixelGeometry)));
 +  }
 +
-+  void drawDevice(SkBaseDevice* baseDevice, const SkSamplingOptions&, const SkPaint& paint) override {
++  void drawDevice(SkDevice* baseDevice,
++                  const SkSamplingOptions&,
++                  const SkPaint& paint) override {
 +    if(isUnsupportedPaint(paint)) {
 +      return;
 +    }
@@ -273,7 +255,7 @@ index 6ee766c522028..1a3748698443e 100644
 +    }
 +
 +    auto* device = static_cast<TextCaptureDevice*>(baseDevice);
-+    SkMatrix transform = device->getRelativeTransform(*this);
++    SkMatrix transform = device->getRelativeTransform(*this).asM33();
 +
 +    for (auto& data: device->data_) {
 +      data_.push_back(
@@ -288,7 +270,9 @@ index 6ee766c522028..1a3748698443e 100644
 +
 +  void drawPaint(const SkPaint&) override {}
 +  void drawOval(const SkRect&, const SkPaint&) override {}
-+  void drawPoints(SkCanvas::PointMode, size_t, const SkPoint[], const SkPaint&) override {}
++  void drawPoints(SkCanvas::PointMode,
++                  SkSpan<const SkPoint>,
++                  const SkPaint&) override {}
 +  void drawImageRect(const SkImage*,
 +                              const SkRect*,
 +                              const SkRect& rect,
@@ -309,7 +293,7 @@ index 6ee766c522028..1a3748698443e 100644
 +    drawRect(mesh.bounds(), paint);
 +  }
 +
-+  void drawPath(const SkPath& path, const SkPaint& paint, bool = false) override {
++  void drawPath(const SkPath& path, const SkPaint& paint) override {
 +    drawRect(path.getBounds(), paint);
 +  }
 +
@@ -347,44 +331,29 @@ index 6ee766c522028..1a3748698443e 100644
 +
 +  void onDrawGlyphRunList(SkCanvas*,
 +                          const sktext::GlyphRunList& glyphRunList,
-+                          const SkPaint&,
 +                          const SkPaint& paint) override {
 +    auto position = scale(glyphRunList.origin());
 +
 +    for (auto& glyphRun : glyphRunList) {
 +      auto runSize = glyphRun.runSize();
-+      SkAutoSTArray<64, SkUnichar> unichars(runSize);
++      skia_private::AutoSTArray<64, SkUnichar> unichars(runSize);
 +      SkFontPriv::GlyphsToUnichars(glyphRun.font(), glyphRun.glyphsIDs().data(),
 +                                    runSize, unichars.get());
 +
-+      auto base64_ptr = std::make_unique<char[]>(runSize + 1);
-+      char* base64 = base64_ptr.get();
-+
++      std::string base64;
++      base64.resize(runSize);
 +      for (size_t i = 0; i < runSize; ++i) {
-+          base64[i] = unichars[i];
++        base64[i] = static_cast<char>(unichars[i]);
 +      }
 +
-+      base64[runSize] = '\0';
-+
-+      size_t size = 0;
-+      auto error = SkBase64::Decode(base64, runSize, nullptr, &size);
-+
-+      if (error != SkBase64::kNoError) {
-+          return;
-+      }
-+
-+      auto utf8_ptr = std::make_unique<char[]>(size);
-+      char* utf8 = utf8_ptr.get();
-+
-+      error = SkBase64::Decode(base64, runSize, utf8, &size);
-+
-+      if (error != SkBase64::kNoError) {
-+          return;
++      std::string utf8;
++      if (!base::Base64Decode(base64, &utf8)) {
++        return;
 +      }
 +
 +      data_.push_back(
 +        carbonyl::mojom::TextData::New(
-+          std::string(utf8, size),
++          utf8,
 +          gfx::RectF(position.x(), position.y(), 0, 0),
 +          paint.getColor()
 +        )
@@ -448,7 +417,8 @@ index 6ee766c522028..1a3748698443e 100644
                                    GetBrowserInterfaceBroker());
    }
  
-+  browser_interface_broker_proxy_.GetInterface(std::move(carbonyl_render_service_receiver_));
++  GetBrowserInterfaceBroker().GetInterface(
++      std::move(carbonyl_render_service_receiver_));
 +
    // Bind this class to mojom::Frame and to the message router for legacy IPC.
    // These must be called after |frame_| is set since binding requires a
@@ -466,19 +436,27 @@ index 6ee766c522028..1a3748698443e 100644
 +  auto renderer = std::make_shared<carbonyl::RendererService>();
 +
 +  render_callback_ = std::make_shared<std::function<bool()>>(
-+    [=]() -> bool {
++    [this, renderer]() -> bool {
 +      if (!IsMainFrame() || IsHidden()) {
 +        return false;
 +      }
 +
 +      size_t width = frame_->DocumentSize().width();
 +      size_t height = frame_->VisibleContentRect().height();
-+      auto* view = static_cast<blink::WebViewImpl*>(GetWebFrame()->View());
++      auto* local_frame = static_cast<blink::WebLocalFrame*>(GetWebFrame());
++      cc::PaintRecorder recorder;
++      cc::PaintCanvas* canvas = recorder.beginRecording();
 +      std::vector<carbonyl::mojom::TextDataPtr> data;
 +
-+      view->MainFrameImpl()->GetFrame()->View()->GetPaintRecord().Playback(
-+        renderer->BeginPaint(width, height)
-+      );
++      if (!local_frame->CapturePaintPreview(
++              gfx::Rect(0, 0, width, height), canvas,
++              /*include_linked_destinations=*/false,
++              /*skip_accelerated_content=*/false,
++              /*allow_scrollbars=*/true)) {
++        return false;
++      }
++
++      recorder.finishRecordingAsPicture().Playback(renderer->BeginPaint(width, height));
 +
 +      renderer->Swap(data);
 +      carbonyl_render_service_->DrawText(std::move(data));
@@ -657,7 +635,7 @@ index f634b8f3d2a33..7bd26bc659367 100644
 +    // Bypass HarfBuzz text shaping for the Carbonyl Skia back-end.
 +    auto blob = SkTextBlob::MakeFromString(
 +        base64.c_str(),
-+        primary_font->PlatformData().CreateSkFont(false, &font_description_));
++        primary_font->PlatformData().CreateSkFont(&font_description_));
 +
 +    if (node_id != cc::kInvalidNodeId) {
 +      canvas->drawTextBlob(blob, point.x(), point.y(), node_id, flags);

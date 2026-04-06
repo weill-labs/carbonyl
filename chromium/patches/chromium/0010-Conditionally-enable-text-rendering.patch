@@ -53,7 +53,8 @@ index 519ce5bbf3322..17e93c673e97a 100644
 -  FontFamily family;
 +  if (!carbonyl::Bridge::BitmapMode()) {
 +    auto font = state.StyleBuilder().GetFontDescription();
-+    FontFamily family;
++    FontFamily family(AtomicString("monospace"),
++                      FontFamily::Type::kGenericFamily);
  
 -  family.SetFamily("monospace", FontFamily::Type::kGenericFamily);
 -  font.SetFamily(family);
@@ -64,9 +65,8 @@ index 519ce5bbf3322..17e93c673e97a 100644
 -  font.SetIsAbsoluteSize(true);
 -  state.StyleBuilder().SetFontDescription(font);
 -  state.StyleBuilder().SetLineHeight(Length::Fixed(14.0 / 7.0));
-+    family.SetFamily("monospace", FontFamily::Type::kGenericFamily);
 +    font.SetFamily(family);
-+    font.SetStretch(ExtraExpandedWidthValue());
++    font.SetStretch(kExtraExpandedWidthValue);
 +    font.SetKerning(FontDescription::kNoneKerning);
 +    font.SetComputedSize(13.25 / 4.0);
 +    font.SetGenericFamily(FontDescription::kMonospaceFamily);

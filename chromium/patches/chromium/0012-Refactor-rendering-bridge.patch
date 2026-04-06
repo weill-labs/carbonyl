@@ -81,8 +81,7 @@ index 0000000000000..a61668050cf0e
 +#include "base/threading/thread_checker.h"
 +#include "base/trace_event/trace_event.h"
 +#include "build/build_config.h"
-+#include "components/viz/common/resources/resource_sizes.h"
-+#include "components/viz/service/display_embedder/output_device_backing.h"
++#include "components/viz/common/resources/shared_image_format_utils.h"
 +#include "mojo/public/cpp/system/platform_handle.h"
 +#include "services/viz/privileged/mojom/compositing/layered_window_updater.mojom.h"
 +#include "skia/ext/platform_canvas.h"
@@ -166,17 +165,17 @@ index 0000000000000..a61668050cf0e
 +void SoftwareOutputDeviceProxy::ResizeDelegated() {
 +  canvas_.reset();
 +
-+  size_t required_bytes;
-+  if (!ResourceSizes::MaybeSizeInBytes(
-+          viewport_pixel_size_, ResourceFormat::RGBA_8888, &required_bytes)) {
++  auto required_bytes = SharedMemorySizeForSharedImageFormat(
++      SinglePlaneFormat::kRGBA_8888, viewport_pixel_size_);
++  if (!required_bytes) {
 +    DLOG(ERROR) << "Invalid viewport size " << viewport_pixel_size_.ToString();
 +    return;
 +  }
 +
 +  base::UnsafeSharedMemoryRegion region =
-+      base::UnsafeSharedMemoryRegion::Create(required_bytes);
++      base::UnsafeSharedMemoryRegion::Create(required_bytes.value());
 +  if (!region.IsValid()) {
-+    DLOG(ERROR) << "Failed to allocate " << required_bytes << " bytes";
++    DLOG(ERROR) << "Failed to allocate " << required_bytes.value() << " bytes";
 +    return;
 +  }
 +
@@ -187,13 +186,14 @@ index 0000000000000..a61668050cf0e
 +  #else
 +  shm_mapping_ = region.Map();
 +  if (!shm_mapping_.IsValid()) {
-+    DLOG(ERROR) << "Failed to map " << required_bytes << " bytes";
++    DLOG(ERROR) << "Failed to map " << required_bytes.value() << " bytes";
 +    return;
 +  }
 +
 +  canvas_ = skia::CreatePlatformCanvasWithPixels(
 +      viewport_pixel_size_.width(), viewport_pixel_size_.height(), false,
-+      static_cast<uint8_t*>(shm_mapping_.memory()), skia::CRASH_ON_FAILURE);
++      static_cast<uint8_t*>(shm_mapping_.memory()), 0u,
++      skia::CRASH_ON_FAILURE);
 +  #endif
 +
 +  // Transfer region ownership to the browser process.
@@ -494,9 +494,17 @@ index 3f787b463988e..bcff97c6370cb 100644
    gfx::NativeWindow GetLocalProcessWindowAtPoint(
        const gfx::Point& point,
 diff --git a/headless/lib/browser/headless_web_contents_impl.cc b/headless/lib/browser/headless_web_contents_impl.cc
-index 90d534b06fba3..34d341e0b989d 100644
+index 90d534b06fba3..1a48ef4e7edb4 100644
 --- a/headless/lib/browser/headless_web_contents_impl.cc
 +++ b/headless/lib/browser/headless_web_contents_impl.cc
+@@ -23,6 +23,7 @@
+ #include "components/headless/console_message_logger/headless_console_message_logger.h"
+ #include "components/optimization_guide/content/browser/page_content_proto_provider.h"
+ #include "components/optimization_guide/proto/features/common_quality_data.pb.h"
++#include "components/zoom/zoom_controller.h"
+ #include "components/viz/common/frame_sinks/copy_output_result.h"
+ #include "carbonyl/src/browser/renderer.h"
+ #include "content/public/browser/browser_thread.h"
 @@ -444,6 +444,7 @@ HeadlessWebContentsImpl::HeadlessWebContentsImpl(
  #if BUILDFLAG(ENABLE_PRINTING)
    HeadlessPrintManager::CreateForWebContents(web_contents_.get());

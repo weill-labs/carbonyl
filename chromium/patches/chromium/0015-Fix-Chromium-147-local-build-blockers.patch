@@ -624,7 +624,7 @@ index 663b4751e32a3..434ecb2391544 100755
 +if __name__ == "__main__":
 +    sys.exit(main())
 diff --git a/headless/BUILD.gn b/headless/BUILD.gn
-index c7d26b0fc3edd..e92c3ffb84771 100644
+index c7d26b0fc3edd..5d7551648a632 100644
 --- a/headless/BUILD.gn
 +++ b/headless/BUILD.gn
 @@ -342,8 +342,6 @@ source_set("headless_browser") {
@@ -636,6 +636,14 @@ index c7d26b0fc3edd..e92c3ffb84771 100644
      "lib/browser/headless_web_contents_impl.cc",
      "lib/browser/headless_web_contents_impl.h",
      "lib/browser/headless_window.cc",
+@@ -395,6 +393,7 @@ source_set("headless_browser") {
+     "//components/security_state/content",
+     "//components/security_state/core",
+     "//components/version_info",
++    "//components/zoom",
+     "//content/public/app",
+     "//content/public/browser",
+     "//content/public/common",
 diff --git a/third_party/blink/renderer/core/BUILD.gn b/third_party/blink/renderer/core/BUILD.gn
 index cbb554819f931..ddb6dd06a8fb7 100644
 --- a/third_party/blink/renderer/core/BUILD.gn

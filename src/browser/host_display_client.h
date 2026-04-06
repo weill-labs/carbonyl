@@ -3,17 +3,15 @@
 
 #include <memory>
 
-#include "base/callback.h"
+#include "base/functional/callback.h"
 #include "base/memory/shared_memory_mapping.h"
 #include "carbonyl/src/browser/export.h"
 #include "components/viz/host/host_display_client.h"
 #include "services/viz/privileged/mojom/compositing/layered_window_updater.mojom.h"
-#include "ui/gfx/native_widget_types.h"
+#include "ui/base/ozone_buildflags.h"
+#include "ui/gfx/native_ui_types.h"
 
 namespace carbonyl {
-
-typedef base::RepeatingCallback<void(const gfx::Rect&, const SkBitmap&)>
-    OnPaintCallback;
 
 class CARBONYL_VIZ_EXPORT LayeredWindowUpdater : public viz::mojom::LayeredWindowUpdater {
  public:
@@ -59,12 +57,11 @@ class CARBONYL_VIZ_EXPORT HostDisplayClient : public viz::HostDisplayClient {
       mojo::PendingReceiver<viz::mojom::LayeredWindowUpdater> receiver)
       override;
 
-#if BUILDFLAG(IS_LINUX) && !BUILDFLAG(IS_CHROMEOS)
+#if BUILDFLAG(IS_LINUX) && BUILDFLAG(SUPPORTS_OZONE_X11)
   void DidCompleteSwapWithNewSize(const gfx::Size& size) override;
 #endif
 
   std::unique_ptr<LayeredWindowUpdater> layered_window_updater_;
-  OnPaintCallback callback_;
 };
 
 }  // namespace carbonyl

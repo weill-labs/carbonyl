@@ -8,12 +8,13 @@ cd "$CARBONYL_ROOT"
 source scripts/env.sh
 
 target="$1"
-cpu="$2"
-
 if [ ! -z "$target" ]; then
     shift
 fi
-if [ ! -z "$cpu" ]; then
+
+cpu=""
+if [ $# -gt 0 ] && [[ "$1" != -* ]]; then
+    cpu="$1"
     shift
 fi
 
@@ -36,6 +37,12 @@ else
     cp "build/$triple/release/libcarbonyl.so" "$CHROMIUM_SRC/out/$target"
 fi
 
-cd "$CHROMIUM_SRC/out/$target"
+cd "$CHROMIUM_SRC"
 
-ninja headless:headless_shell "$@"
+if [ -x "$CHROMIUM_SRC/third_party/ninja/ninja" ]; then
+    ninja_bin="$CHROMIUM_SRC/third_party/ninja/ninja"
+else
+    ninja_bin="ninja"
+fi
+
+"$ninja_bin" -C "out/$target" headless:headless_shell "$@"
