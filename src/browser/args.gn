@@ -35,7 +35,8 @@ rtc_use_x11_extensions = false
 # use_system_libdrm = false
 # use_system_minigbm = false
 
-# Disable unused features
+# Chromium 147 still wires several test/browser targets through these feature
+# flags during GN generation, so keep the upstream-compatible defaults here.
 enable_pdf = true
 enable_nacl = false
 enable_ppapi = false

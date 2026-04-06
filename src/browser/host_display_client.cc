@@ -2,6 +2,7 @@
 
 #include <utility>
 
+#include "base/logging.h"
 #include "mojo/public/cpp/system/platform_handle.h"
 #include "skia/ext/platform_canvas.h"
 #include "third_party/skia/include/core/SkColor.h"
@@ -38,6 +39,12 @@ void LayeredWindowUpdater::OnAllocatedSharedMemory(
 
 void LayeredWindowUpdater::Draw(const gfx::Rect& damage_rect,
                                 DrawCallback callback) {
+  if (!shm_mapping_.IsValid()) {
+    LOG(ERROR) << "Draw called without a valid shared memory mapping";
+    std::move(callback).Run();
+    return;
+  }
+
   Renderer::GetCurrent()->DrawBitmap(
     shm_mapping_.GetMemoryAs<uint8_t>(),
     pixel_size_,

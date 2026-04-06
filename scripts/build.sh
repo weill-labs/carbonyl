@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+set -eo pipefail
+
 script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
 export CARBONYL_ROOT="$(cd -- "$script_dir/.." && pwd -P)"
 export INSTALL_DEPOT_TOOLS="true"
@@ -10,6 +12,9 @@ source scripts/env.sh
 target="$1"
 if [ ! -z "$target" ]; then
     shift
+else
+    echo "Usage: ./scripts/build.sh <target> [cpu] [ninja-args...]"
+    exit 1
 fi
 
 cpu=""

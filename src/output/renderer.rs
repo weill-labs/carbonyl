@@ -79,6 +79,12 @@ impl Renderer {
     pub fn set_size(&mut self, size: Size) {
         self.nav.set_size(size);
         self.size = size;
+        self.text_masks.clear();
+
+        if size.width == 0 || size.height == 0 {
+            self.cells.clear();
+            return;
+        }
 
         let mut x = 0;
         let mut y = 0;
@@ -136,15 +142,29 @@ impl Renderer {
         Ok(())
     }
 
-    /// Draw the background from a pixel array encoded in RGBA8888
+    /// Draw the background from a pixel array encoded in BGRA8888
     pub fn draw_background(&mut self, pixels: &[u8], pixels_size: Size, rect: Rect) {
         let viewport = self.size.cast::<usize>();
+        let row_length = pixels_size.width as usize;
+        let pixel_height = pixels_size.height as usize;
 
-        if pixels.len() < viewport.width * viewport.height * 8 * 4 {
-            log::debug!(
-                "unexpected size, actual: {}, expected: {}",
+        if viewport.width == 0 || viewport.height == 0 || row_length == 0 || pixel_height == 0 {
+            return;
+        }
+
+        let Some(expected_len) = row_length
+            .checked_mul(pixel_height)
+            .and_then(|length| length.checked_mul(4))
+        else {
+            log::error!("background buffer dimensions overflowed");
+            return;
+        };
+
+        if pixels.len() < expected_len {
+            log::error!(
+                "unexpected background size, actual: {}, expected at least: {}",
                 pixels.len(),
-                viewport.width * viewport.height * 8 * 4
+                expected_len
             );
             return;
         }
@@ -159,12 +179,21 @@ impl Renderer {
         let bottom = ((origin.y + size.height).ceil() as usize)
             .min(viewport.height)
             .max(top);
-        let row_length = pixels_size.width as usize;
-        let pixel = |x, y| {
+        let pixel = |x: usize, y: usize| {
+            let Some(offset) = x
+                .checked_add(y.saturating_mul(row_length))
+                .and_then(|offset: usize| offset.checked_mul(4))
+            else {
+                return self.page_background;
+            };
+            if y >= pixel_height || x >= row_length || offset + 3 >= pixels.len() {
+                return self.page_background;
+            }
+
             Color::new(
-                pixels[((x + y * row_length) * 4 + 2) as usize],
-                pixels[((x + y * row_length) * 4 + 1) as usize],
-                pixels[((x + y * row_length) * 4 + 0) as usize],
+                pixels[offset + 2],
+                pixels[offset + 1],
+                pixels[offset],
             )
         };
         let pair = |x, y| pixel(x, y).avg_with(pixel(x, y + 1));
@@ -172,8 +201,12 @@ impl Renderer {
         for y in top..bottom {
             let index = (y + 1) * viewport.width;
             let start = index + left;
-            let end = index + right;
+            let end = (index + right).min(self.cells.len());
             let (mut x, y) = (left * 2, y * 4);
+
+            if start >= end {
+                continue;
+            }
 
             for (_, cell) in &mut self.cells[start..end] {
                 cell.quadrant = (
@@ -246,13 +279,22 @@ impl Renderer {
         let origin = bounds.origin.cast::<usize>();
         let size = bounds.size.cast::<usize>();
         let viewport_width = self.size.width as usize;
-        let top = origin.y;
-        let bottom = top + size.height;
+        if viewport_width == 0 || self.cells.is_empty() {
+            return;
+        }
 
-        // Iterate over each row
+        let total_rows = self.cells.len().saturating_add(viewport_width - 1) / viewport_width;
+        let top = origin.y;
+        let bottom = top.saturating_add(size.height).min(total_rows);
+
         for y in top..bottom {
             let left = y * viewport_width + origin.x;
-            let right = left + size.width;
+            let row_end = ((y + 1) * viewport_width).min(self.cells.len());
+            let right = left.saturating_add(size.width).min(row_end);
+
+            if left >= right || left >= self.cells.len() {
+                continue;
+            }
 
             for (_, current) in self.cells[left..right].iter_mut() {
                 draw(current)
@@ -402,14 +444,28 @@ impl Renderer {
         if samples.is_empty() {
             None
         } else {
-            samples
-                .into_iter()
-                .max_by_key(|color| color.r as u16 + color.g as u16 + color.b as u16)
+            let count = samples.len() as u32;
+            let total = samples.into_iter().fold((0u32, 0u32, 0u32), |acc, color| {
+                (
+                    acc.0 + color.r as u32,
+                    acc.1 + color.g as u32,
+                    acc.2 + color.b as u32,
+                )
+            });
+
+            Some(Color::new(
+                (total.0 / count) as u8,
+                (total.1 / count) as u8,
+                (total.2 / count) as u8,
+            ))
         }
     }
 
     fn cell_color(&self, x: usize, y: usize, viewport_width: usize) -> Color {
         let index = y * viewport_width + x;
+        if index >= self.cells.len() {
+            return self.page_background;
+        }
         let quadrant = self.cells[index].1.quadrant;
 
         quadrant

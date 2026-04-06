@@ -1,5 +1,7 @@
 #include "carbonyl/src/browser/renderer.h"
 
+#include <algorithm>
+#include <cmath>
 #include <memory>
 #include <iostream>
 #include <stdio.h>
@@ -63,6 +65,14 @@ void carbonyl_renderer_draw_bitmap(
 }
 
 namespace carbonyl {
+
+namespace {
+
+unsigned int ClampToUnsigned(float value) {
+    return static_cast<unsigned int>(std::max(0.0f, value));
+}
+
+}  // namespace
 
 Renderer::Renderer(struct carbonyl_renderer* ptr): ptr_(ptr) {}
 
@@ -128,8 +138,8 @@ void Renderer::DrawText(const std::vector<Text>& text) {
             .text = text[i].text.c_str(),
             .rect = {
                 .origin = {
-                    .x = static_cast<unsigned int>(text[i].rect.x()),
-                    .y = static_cast<unsigned int>(text[i].rect.y()),
+                    .x = ClampToUnsigned(text[i].rect.x()),
+                    .y = ClampToUnsigned(text[i].rect.y()),
                 },
                 .size = {
                     .width = static_cast<unsigned int>(std::ceil(text[i].rect.width())),
@@ -164,8 +174,8 @@ void Renderer::DrawBitmap(
         },
         {
             .origin = {
-                .x = (unsigned int)damage.x(),
-                .y = (unsigned int)damage.y(),
+                .x = ClampToUnsigned(static_cast<float>(damage.x())),
+                .y = ClampToUnsigned(static_cast<float>(damage.y())),
             },
             .size = {
                 .width = (unsigned int)damage.width(),

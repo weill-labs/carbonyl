@@ -174,6 +174,7 @@ index 6ee766c522028..1a3748698443e 100644
 +#include <stdlib.h>
 +#include <iostream>
 +#include "base/base64.h"
++#include "base/logging.h"
 +#include "cc/paint/paint_recorder.h"
 +#include "cc/paint/skia_paint_canvas.h"
 +#include "cc/raster/playback_image_provider.h"
@@ -206,6 +207,9 @@ index 6ee766c522028..1a3748698443e 100644
 +} // namespace content
 +
 +namespace carbonyl {
++// Records Blink's paint replay into Carbonyl text/background spans.
++// Full-frame fills are preserved via drawPaint(), while glyph runs are
++// converted back into UTF-8 text records for the Rust terminal renderer.
 +class TextCaptureDevice: public SkClipStackDevice {
 +public:
 +  TextCaptureDevice(
@@ -420,6 +424,13 @@ index 6ee766c522028..1a3748698443e 100644
  
 +  GetBrowserInterfaceBroker().GetInterface(
 +      std::move(carbonyl_render_service_receiver_));
++  carbonyl_render_service_.set_disconnect_handler(base::BindOnce(
++      [](base::WeakPtr<RenderFrameImpl> frame) {
++        if (frame) {
++          LOG(WARNING) << "Carbonyl render service disconnected";
++        }
++      },
++      weak_factory_.GetWeakPtr()));
 +
    // Bind this class to mojom::Frame and to the message router for legacy IPC.
    // These must be called after |frame_| is set since binding requires a
@@ -452,6 +463,9 @@ index 6ee766c522028..1a3748698443e 100644
 +        return false;
 +      }
 +
++      // Repaint the current frame into a SkPicture, then replay that picture
++      // into TextCaptureDevice so Carbonyl receives Blink's text/background
++      // paint stream directly on Chromium 147.
 +      GetWebView()->PaintContent(canvas, gfx::Rect(0, 0, width, height));
 +
 +      recorder.finishRecordingAsPicture().Playback(renderer->BeginPaint(width, height));
