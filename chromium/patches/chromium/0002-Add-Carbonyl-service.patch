@@ -213,9 +213,7 @@ index 6ee766c522028..1a3748698443e 100644
 +    const SkSurfaceProps& props
 +  ):
 +    SkClipStackDevice(info, props)
-+  {
-+    clear(SkRect::MakeWH(info.width(), info.height()));
-+  }
++  {}
 +
 +  void swap(std::vector<carbonyl::mojom::TextDataPtr>& data) {
 +    data.swap(data_);
@@ -226,11 +224,15 @@ index 6ee766c522028..1a3748698443e 100644
 +  }
 +
 +  void clear(const SkRect& rect) {
++    fill(rect, SK_ColorBLACK);
++  }
++
++  void fill(const SkRect& rect, SkColor color) {
 +    data_.push_back(
 +      carbonyl::mojom::TextData::New(
 +        std::string(),
 +        gfx::SkRectToRectF(rect),
-+        0
++        color
 +      )
 +    );
 +  }
@@ -258,6 +260,9 @@ index 6ee766c522028..1a3748698443e 100644
 +    SkMatrix transform = device->getRelativeTransform(*this).asM33();
 +
 +    for (auto& data: device->data_) {
++      if (data->contents.empty()) {
++        continue;
++      }
 +      data_.push_back(
 +        carbonyl::mojom::TextData::New(
 +          data->contents,
@@ -268,7 +273,25 @@ index 6ee766c522028..1a3748698443e 100644
 +    }
 +  }
 +
-+  void drawPaint(const SkPaint&) override {}
++  void drawPaint(const SkPaint& paint) override {
++    if (
++      paint.getStyle() != SkPaint::Style::kFill_Style ||
++      paint.getAlphaf() != 1.0 ||
++      isUnsupportedPaint(paint)
++    ) {
++      return;
++    }
++
++    auto blendMode = paint.getBlendMode_or(SkBlendMode::kClear);
++    auto rect = scale(SkRect::MakeIWH(imageInfo().width(), imageInfo().height()));
++
++    if (blendMode == SkBlendMode::kClear) {
++      clear(rect);
++    } else if (blendMode == SkBlendMode::kSrc ||
++               blendMode == SkBlendMode::kSrcOver) {
++      fill(rect, paint.getColor());
++    }
++  }
 +  void drawOval(const SkRect&, const SkPaint&) override {}
 +  void drawPoints(SkCanvas::PointMode,
 +                  SkSpan<const SkPoint>,
@@ -282,24 +305,16 @@ index 6ee766c522028..1a3748698443e 100644
 +    // clear(scale(rect));
 +  }
 +
-+  void drawVertices(const SkVertices* vertices,
++  void drawVertices(const SkVertices*,
 +                            sk_sp<SkBlender>,
-+                            const SkPaint& paint,
-+                            bool = false) override {
-+    drawRect(vertices->bounds(), paint);
-+  }
++                            const SkPaint&,
++                            bool = false) override {}
 +
-+  void drawMesh(const SkMesh& mesh, sk_sp<SkBlender>, const SkPaint& paint) override {
-+    drawRect(mesh.bounds(), paint);
-+  }
++  void drawMesh(const SkMesh&, sk_sp<SkBlender>, const SkPaint&) override {}
 +
-+  void drawPath(const SkPath& path, const SkPaint& paint) override {
-+    drawRect(path.getBounds(), paint);
-+  }
++  void drawPath(const SkPath&, const SkPaint&) override {}
 +
-+  void drawRRect(const SkRRect& rect, const SkPaint& paint) override {
-+    drawRect(rect.rect(), paint);
-+  }
++  void drawRRect(const SkRRect&, const SkPaint&) override {}
 +
 +  bool isUnsupportedPaint(const SkPaint& paint) {
 +      return (
@@ -313,21 +328,7 @@ index 6ee766c522028..1a3748698443e 100644
 +      );
 +  }
 +
-+  void drawRect(const SkRect& rect, const SkPaint& paint) override {
-+    if (
-+      paint.getStyle() == SkPaint::Style::kFill_Style &&
-+      paint.getAlphaf() == 1.0 &&
-+      !isUnsupportedPaint(paint)
-+    ) {
-+      auto blendMode = paint.getBlendMode_or(SkBlendMode::kClear);
-+
-+      if (blendMode == SkBlendMode::kSrc || blendMode == SkBlendMode::kSrcOver) {
-+        clear(scale(rect));
-+      } else {
-+        std::cerr << "Blending mode: " << SkBlendMode_Name(blendMode) << std::endl;
-+      }
-+    }
-+  }
++  void drawRect(const SkRect&, const SkPaint&) override {}
 +
 +  void onDrawGlyphRunList(SkCanvas*,
 +                          const sktext::GlyphRunList& glyphRunList,
@@ -443,18 +444,15 @@ index 6ee766c522028..1a3748698443e 100644
 +
 +      size_t width = frame_->DocumentSize().width();
 +      size_t height = frame_->VisibleContentRect().height();
-+      auto* local_frame = static_cast<blink::WebLocalFrame*>(GetWebFrame());
 +      cc::PaintRecorder recorder;
 +      cc::PaintCanvas* canvas = recorder.beginRecording();
 +      std::vector<carbonyl::mojom::TextDataPtr> data;
 +
-+      if (!local_frame->CapturePaintPreview(
-+              gfx::Rect(0, 0, width, height), canvas,
-+              /*include_linked_destinations=*/false,
-+              /*skip_accelerated_content=*/false,
-+              /*allow_scrollbars=*/true)) {
++      if (!GetWebView()) {
 +        return false;
 +      }
++
++      GetWebView()->PaintContent(canvas, gfx::Rect(0, 0, width, height));
 +
 +      recorder.finishRecordingAsPicture().Playback(renderer->BeginPaint(width, height));
 +

@@ -47,7 +47,6 @@ pub struct CText {
 
 #[repr(C)]
 pub struct RendererBridge {
-    cmd: CommandLine,
     window: Window,
     renderer: RenderThread,
 }
@@ -161,7 +160,6 @@ pub extern "C" fn carbonyl_bridge_get_dpi() -> c_float {
 #[no_mangle]
 pub extern "C" fn carbonyl_renderer_create() -> RendererPtr {
     let bridge = RendererBridge {
-        cmd: CommandLine::parse(),
         window: Window::read(),
         renderer: RenderThread::new(),
     };
@@ -244,9 +242,23 @@ pub extern "C" fn carbonyl_renderer_draw_text(
 
     bridge.renderer.render(move |renderer| {
         renderer.clear_text();
+        let viewport = renderer.get_size();
+        let viewport_width = viewport.width.saturating_mul(2);
+        let viewport_height = viewport.height.saturating_sub(1).saturating_mul(4);
 
         for (text, origin, size, color) in std::mem::take(&mut vec) {
-            renderer.draw_text(&text, origin, size, color)
+            if text.is_empty() {
+                let full_viewport_fill = origin.x == 0
+                    && origin.y == 0
+                    && size.width.saturating_add(2) >= viewport_width
+                    && size.height.saturating_add(4) >= viewport_height;
+
+                if full_viewport_fill {
+                    renderer.fill_rect(Rect { origin, size }, color);
+                }
+            } else {
+                renderer.draw_text(&text, origin, size, color);
+            }
         }
     });
 }
