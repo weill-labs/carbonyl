@@ -1,0 +1,124 @@
+#!/usr/bin/env bash
+
+set -eo pipefail
+
+script_dir="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd -P)"
+export CARBONYL_ROOT="$script_dir"
+export CHROMIUM_ROOT="$CARBONYL_ROOT/chromium"
+export CHROMIUM_SRC="$CHROMIUM_ROOT/src"
+
+die() {
+    echo "$*" >&2
+    exit 1
+}
+
+find_build_dir() {
+    local candidate
+
+    for candidate in "$CHROMIUM_SRC"/out/*; do
+        if [ -d "$candidate" ] && [ -x "$candidate/headless_shell" ]; then
+            echo -n "$candidate"
+            return 0
+        fi
+    done
+
+    return 1
+}
+
+have_arg() {
+    local needle="$1"
+    shift
+    local arg
+
+    for arg in "$@"; do
+        if [ "$arg" == "$needle" ]; then
+            return 0
+        fi
+    done
+
+    return 1
+}
+
+show_linux_dep_error() {
+    local -a missing_libs=("$@")
+
+    echo "Carbonyl is missing required system libraries:" >&2
+    printf '  %s\n' "${missing_libs[@]}" >&2
+    cat >&2 <<'EOF'
+
+Install Chromium runtime dependencies on Ubuntu 22.04+ with:
+  sudo apt-get update
+  sudo apt-get install -y libasound2 libatk1.0-0 libatk-bridge2.0-0 libcairo2 libcups2 libdrm2 libexpat1 libfontconfig1 libgbm1 libglib2.0-0 libgtk-3-0 libnspr4 libnss3 libpango-1.0-0 libpangocairo-1.0-0 libx11-xcb1 libxcb-dri3-0 libxcomposite1 libxdamage1 libxfixes3 libxkbcommon0 libxrandr2 libxshmfence1
+
+The minimal Carbonyl Docker image also installs:
+  libasound2 libexpat1 libfontconfig1 libnss3
+EOF
+}
+
+check_linux_deps() {
+    local library_path="$1"
+    local -a reports=()
+    local -a missing=()
+    local -a unique_missing=()
+    local line
+    local lib
+    local report
+
+    if ! command -v ldd >/dev/null 2>&1; then
+        return 0
+    fi
+
+    reports+=("$headless_shell")
+
+    if [ -f "$library_path/libcarbonyl.so" ]; then
+        reports+=("$library_path/libcarbonyl.so")
+    fi
+
+    while IFS= read -r line; do
+        if [[ "$line" == *"=> not found" ]]; then
+            lib="${line%% => not found*}"
+            missing+=("$lib")
+        fi
+    done < <(
+        for report in "${reports[@]}"; do
+            LD_LIBRARY_PATH="$library_path${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}" ldd "$report" 2>/dev/null || true
+        done
+    )
+
+    if [ ${#missing[@]} -eq 0 ]; then
+        return 0
+    fi
+
+    while IFS= read -r lib; do
+        if [ -n "$lib" ]; then
+            unique_missing+=("$lib")
+        fi
+    done < <(printf '%s\n' "${missing[@]}" | sort -u)
+
+    show_linux_dep_error "${unique_missing[@]}"
+    exit 1
+}
+
+build_dir="$(find_build_dir)" || die "Could not find a packaged Carbonyl runtime under $CHROMIUM_SRC/out"
+headless_shell="$build_dir/headless_shell"
+
+if [ ! -x "$headless_shell" ]; then
+    die "headless_shell is missing or not executable: $headless_shell"
+fi
+
+if [[ "$OSTYPE" == "linux-gnu"* ]]; then
+    export LD_LIBRARY_PATH="$build_dir${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+    check_linux_deps "$build_dir"
+elif [[ "$OSTYPE" == "darwin"* ]]; then
+    export DYLD_LIBRARY_PATH="$build_dir${DYLD_LIBRARY_PATH:+:$DYLD_LIBRARY_PATH}"
+fi
+
+args=("$@")
+
+if [ "${CARBONYL_NO_SANDBOX:-}" == "1" ] || [ "$(id -u)" -eq 0 ]; then
+    if ! have_arg "--no-sandbox" "${args[@]}"; then
+        args=(--no-sandbox "${args[@]}")
+    fi
+fi
+
+exec "$headless_shell" "${args[@]}"

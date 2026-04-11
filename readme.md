@@ -23,6 +23,15 @@ It's snappy, starts in less than a second, runs at 60 FPS, and idles at 0% CPU u
 
 Carbonyl originally started as [`html2svg`](https://github.com/fathyb/html2svg) and is now the runtime behind it.
 
+## Quick Install
+
+```shell
+$ VERSION=0.0.3
+$ curl -fLO "https://github.com/fathyb/carbonyl/releases/download/v${VERSION}/carbonyl-${VERSION}-linux-amd64.tar.gz"
+$ tar -xzf "carbonyl-${VERSION}-linux-amd64.tar.gz"
+$ "./carbonyl-${VERSION}-linux-amd64/carbonyl" https://github.com
+```
+
 ## Usage
 
 > Carbonyl on Linux without Docker requires the same dependencies as Chromium.
@@ -42,10 +51,9 @@ $ carbonyl https://github.com
 
 ### Binaries
 
-- [macOS amd64](https://github.com/fathyb/carbonyl/releases/download/v0.0.3/carbonyl.macos-amd64.zip)
-- [macOS arm64](https://github.com/fathyb/carbonyl/releases/download/v0.0.3/carbonyl.macos-arm64.zip)
-- [Linux amd64](https://github.com/fathyb/carbonyl/releases/download/v0.0.3/carbonyl.linux-amd64.zip)
-- [Linux arm64](https://github.com/fathyb/carbonyl/releases/download/v0.0.3/carbonyl.linux-arm64.zip)
+Pre-built release tarballs are published on [GitHub Releases](https://github.com/fathyb/carbonyl/releases).
+
+Current release assets use the `carbonyl-VERSION-linux-amd64.tar.gz` naming scheme.
 
 ## Demo
 
