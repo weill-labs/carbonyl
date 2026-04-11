@@ -26,8 +26,8 @@ Carbonyl originally started as [`html2svg`](https://github.com/fathyb/html2svg) 
 ## Quick Install
 
 ```shell
-$ VERSION=0.0.3
-$ curl -fLO "https://github.com/fathyb/carbonyl/releases/download/v${VERSION}/carbonyl-${VERSION}-linux-amd64.tar.gz"
+$ VERSION=0.0.4
+$ curl -fLO "https://github.com/weill-labs/carbonyl/releases/download/v${VERSION}/carbonyl-${VERSION}-linux-amd64.tar.gz"
 $ tar -xzf "carbonyl-${VERSION}-linux-amd64.tar.gz"
 $ "./carbonyl-${VERSION}-linux-amd64/carbonyl" https://github.com
 ```
@@ -51,7 +51,7 @@ $ carbonyl https://github.com
 
 ### Binaries
 
-Pre-built release tarballs are published on [GitHub Releases](https://github.com/fathyb/carbonyl/releases).
+Pre-built release tarballs are published on [GitHub Releases](https://github.com/weill-labs/carbonyl/releases).
 
 Current release assets use the `carbonyl-VERSION-linux-amd64.tar.gz` naming scheme.
 
