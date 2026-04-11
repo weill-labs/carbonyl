@@ -171,6 +171,10 @@ required_files=(
     "$build_dir/headless_shell"
     "$build_dir/icudtl.dat"
     "$build_dir/libcarbonyl.$lib_ext"
+)
+
+# ANGLE may be statically linked (use_static_angle=true), so these are optional
+angle_files=(
     "$build_dir/libEGL.$lib_ext"
     "$build_dir/libGLESv2.$lib_ext"
 )
@@ -193,6 +197,12 @@ copy_entries=(
     "${required_files[@]}"
     "${required_v8_snapshots[@]}"
 )
+
+for file in "${angle_files[@]}"; do
+    if [ -f "$file" ]; then
+        copy_entries+=("$file")
+    fi
+done
 
 optional_files=(
     "$build_dir/snapshot_blob.bin"
