@@ -1,0 +1,66 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  linux-amd64:
+    # Self-hosted runners with a cached Chromium checkout are required because
+    # the Chromium checkout is too large for GitHub-hosted runners.
+    runs-on:
+      - self-hosted
+      - Linux
+      - X64
+
+    defaults:
+      run:
+        shell: bash
+
+    env:
+      BUILD_TARGET: Release
+      BUILD_CPU: amd64
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          clean: false
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Ensure cached Chromium checkout is present
+        run: |
+          if [ ! -d chromium/src ]; then
+            echo "chromium/src is missing." >&2
+            echo "Provision the self-hosted runner with a cached Chromium checkout before running release builds." >&2
+            exit 1
+          fi
+
+      - name: Apply Chromium patches
+        run: ./scripts/patches.sh apply
+
+      - name: Configure GN args
+        run: |
+          ./scripts/gn.sh gen "out/$BUILD_TARGET" --args='import("//carbonyl/src/browser/args.gn") is_debug=false symbol_level=0 is_official_build=true'
+
+      - name: Build Carbonyl
+        run: ./scripts/build.sh "$BUILD_TARGET" "$BUILD_CPU"
+
+      - name: Package release tarball
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          ./scripts/package.sh "chromium/src/out/$BUILD_TARGET" --cpu "$BUILD_CPU" --version "$version"
+
+      - name: Upload release asset
+        uses: softprops/action-gh-release@v2
+        with:
+          files: build/packages/*.tar.gz
+          generate_release_notes: true
